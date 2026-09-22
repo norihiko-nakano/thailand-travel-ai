@@ -1,6 +1,7 @@
 import base64
 import hmac
 import textwrap
+from pathlib import Path
 
 import streamlit as st
 from openai import OpenAI
@@ -17,82 +18,37 @@ st.set_page_config(
 MAX_QUESTIONS = 10  # 1セッションあたりの質問上限
 
 # ------------------------------------------------------------
-# 🦛 カバ先生のイラスト（SVG）
-#   talking=True で口が開いて、ゆらゆら揺れる
+# 🦛 カバ先生の画像
+#   images/kaba_sensei.png          … 通常（必須）
+#   images/kaba_sensei_talking.png  … しゃべり中（任意・無ければ通常画像を使う）
 # ------------------------------------------------------------
-def hippo_svg(talking: bool = False) -> str:
-    if talking:
-        mouth = """
-        <ellipse cx="100" cy="146" rx="16" ry="11" fill="#7B2D3E"/>
-        <ellipse cx="100" cy="151" rx="9" ry="5" fill="#F08BA0"/>
-        <rect x="90" y="135" width="7" height="7" rx="2" fill="#FFFFFF"/>
-        <rect x="103" y="135" width="7" height="7" rx="2" fill="#FFFFFF"/>
-        """
-    else:
-        mouth = """
-        <path d="M82 140 Q100 154 118 140" stroke="#4A3F63" stroke-width="4"
-              fill="none" stroke-linecap="round"/>
-        """
+IMG_DIR = Path(__file__).parent / "images"
 
-    return f"""
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 260">
-  <!-- 指し棒 -->
-  <line x1="170" y1="215" x2="212" y2="120" stroke="#8A5A2B" stroke-width="6" stroke-linecap="round"/>
-  <circle cx="212" cy="120" r="6" fill="#E8B84A"/>
 
-  <!-- 体 -->
-  <ellipse cx="100" cy="215" rx="75" ry="48" fill="#8F82B5"/>
-  <!-- ネクタイ（タイだけに） -->
-  <polygon points="92,168 108,168 104,180 112,212 100,224 88,212 96,180" fill="#E8B84A"/>
-  <!-- 手 -->
-  <ellipse cx="168" cy="212" rx="14" ry="12" fill="#A99CC7"/>
-
-  <!-- 耳 -->
-  <circle cx="52" cy="48" r="14" fill="#A99CC7"/>
-  <circle cx="52" cy="48" r="7" fill="#F2A7B8"/>
-  <circle cx="148" cy="48" r="14" fill="#A99CC7"/>
-  <circle cx="148" cy="48" r="7" fill="#F2A7B8"/>
-
-  <!-- 頭 -->
-  <ellipse cx="100" cy="98" rx="64" ry="56" fill="#A99CC7"/>
-
-  <!-- 目 -->
-  <circle cx="78" cy="82" r="11" fill="#FFFFFF"/>
-  <circle cx="122" cy="82" r="11" fill="#FFFFFF"/>
-  <circle cx="80" cy="84" r="5" fill="#2E2640"/>
-  <circle cx="124" cy="84" r="5" fill="#2E2640"/>
-  <!-- メガネ -->
-  <circle cx="78" cy="82" r="16" fill="none" stroke="#2E2640" stroke-width="3"/>
-  <circle cx="122" cy="82" r="16" fill="none" stroke="#2E2640" stroke-width="3"/>
-  <line x1="94" y1="82" x2="106" y2="82" stroke="#2E2640" stroke-width="3"/>
-
-  <!-- 鼻づら -->
-  <ellipse cx="100" cy="130" rx="52" ry="32" fill="#C7BCE0"/>
-  <ellipse cx="84" cy="118" rx="5" ry="7" fill="#4A3F63"/>
-  <ellipse cx="116" cy="118" rx="5" ry="7" fill="#4A3F63"/>
-  <!-- ほっぺ -->
-  <circle cx="54" cy="128" r="8" fill="#F2A7B8" opacity="0.7"/>
-  <circle cx="146" cy="128" r="8" fill="#F2A7B8" opacity="0.7"/>
-
-  <!-- 口 -->
-  {mouth}
-
-  <!-- 角帽 -->
-  <rect x="72" y="36" width="56" height="12" rx="3" fill="#2E2640"/>
-  <polygon points="100,14 156,32 100,48 44,32" fill="#2E2640"/>
-  <line x1="148" y1="32" x2="156" y2="58" stroke="#E8B84A" stroke-width="3"/>
-  <circle cx="156" cy="60" r="4" fill="#E8B84A"/>
-</svg>
-"""
+@st.cache_data
+def load_image_b64(name: str) -> str | None:
+    path = IMG_DIR / name
+    if not path.exists():
+        return None
+    return base64.b64encode(path.read_bytes()).decode("utf-8")
 
 
 def show_hippo(talking: bool) -> None:
-    b64 = base64.b64encode(hippo_svg(talking).encode("utf-8")).decode("utf-8")
+    img = None
+    if talking:
+        img = load_image_b64("kaba_sensei_talking.png")
+    img = img or load_image_b64("kaba_sensei.png")
+
     cls = "hippo talking" if talking else "hippo"
+    if img:
+        body = f'<img class="{cls}" src="data:image/png;base64,{img}" alt="カバ先生"/>'
+    else:
+        body = f'<div class="{cls} hippo-fallback">🦛</div>'
+
     st.markdown(
         f"""
         <div class="hippo-wrap">
-            <img class="{cls}" src="data:image/svg+xml;base64,{b64}" alt="カバ先生"/>
+            {body}
             <div class="nameplate">🦛 カバ先生</div>
         </div>
         """,
@@ -126,7 +82,8 @@ h1 { color: var(--hippo-dark); letter-spacing: 0.02em; }
 
 /* --- カバ先生 --- */
 .hippo-wrap { text-align: center; }
-.hippo { width: 100%; max-width: 240px; }
+.hippo { width: 100%; max-width: 260px; border-radius: 24px; }
+.hippo-fallback { font-size: 8rem; line-height: 1; }
 .hippo.talking { animation: bob 1.4s ease-in-out infinite; }
 @keyframes bob {
     0%, 100% { transform: translateY(0) rotate(0deg); }
