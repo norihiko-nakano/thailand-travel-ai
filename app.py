@@ -537,6 +537,9 @@ if "answer" not in st.session_state:
 
     st.session_state.answer = None
 
+# 会話履歴を保存する
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
 if (
     st.session_state.get("active_language")
@@ -549,6 +552,7 @@ if (
 
     # 以前の言語の回答を消す
     st.session_state.answer = None
+    st.session_state.messages = []
 
 
 # ============================================================
@@ -806,7 +810,12 @@ with right:
 
                             instructions=INSTRUCTIONS,
 
-                            input=question,
+                            input=st.session_state.messages + [
+                                {
+                                    "role": "user",
+                                    "content": question
+                                }
+                            ],
 
                             reasoning={
                                 "effort": "low"
@@ -817,14 +826,28 @@ with right:
                         )
                     )
 
-                    st.session_state.answer = (
-                        response.output_text
-                    )
 
+                    # 今回の質問を保存
+                    st.session_state.messages.append({
+                        "role": "user",
+                        "content": question
+                    })
+                    
+                    # AIの回答を保存
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": response.output_text
+                    })
+                    
+                    # 最新の回答を画面に表示
+                    st.session_state.answer = response.output_text
+                    
+                    # 質問回数を増やす
                     st.session_state.count += 1
-
+                    
+                    # 画面更新
                     st.rerun()
-
+    
                 except Exception as e:
 
                     print(
