@@ -350,7 +350,9 @@ with header_left:
 
     if selected_language is None:
 
-        st.title("🦛 Thailand Travel AI {APP_VERSION} 🇹🇭")
+        st.title(
+            f"🦛 Thailand Travel AI {APP_VERSION} 🇹🇭"
+        )
 
         st.caption(
             "Choose Language / 言語を選択 / เลือกภาษา"
