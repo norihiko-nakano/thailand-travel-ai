@@ -19,7 +19,7 @@ st.set_page_config(
 )
 
 MAX_QUESTIONS = 10
-
+APP_VERSION = "Ver.1.6"
 IMG_DIR = Path(__file__).parent / "images"
 
 
@@ -350,7 +350,7 @@ with header_left:
 
     if selected_language is None:
 
-        st.title("🦛 Thailand Travel AI 🇹🇭")
+        st.title("🦛 Thailand Travel AI {APP_VERSION} 🇹🇭")
 
         st.caption(
             "Choose Language / 言語を選択 / เลือกภาษา"
