@@ -164,8 +164,22 @@ h1 { color: var(--hippo-dark); letter-spacing: 0.02em; }
 # ------------------------------------------------------------
 st.title("🦛 カバ先生のタイ旅行教室 🇹🇭")
 
-password = st.text_input("Access Password", type="password")
-if not hmac.compare_digest(password, st.secrets.get("APP_PASSWORD", "")):
+
+app_password = st.secrets.get("APP_PASSWORD")
+
+if not app_password:
+    st.error("アプリのパスワードが設定されていません。")
+    st.stop()
+
+password = st.text_input(
+    "Access Password",
+    type="password"
+)
+
+if not password or not hmac.compare_digest(
+    password,
+    app_password
+):
     st.info("パスワードを入力すると、カバ先生の授業が始まります。")
     st.stop()
 
