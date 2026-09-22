@@ -1,7 +1,5 @@
 
-import base64
 import hmac
-import textwrap
 from pathlib import Path
 
 import streamlit as st
@@ -10,143 +8,216 @@ from openai import OpenAI
 
 # ============================================================
 # 🦛 カバ先生のタイ旅行教室
-# Thailand Travel AI Assistant
+# Version 1.4
+# Japanese / English / Thai
 # ============================================================
 
-
-# ------------------------------------------------------------
-# 1. ページ設定
-# ------------------------------------------------------------
-
 st.set_page_config(
-    page_title="カバ先生のタイ旅行教室",
+    page_title="Thailand Travel AI",
     page_icon="🦛",
     layout="wide",
 )
 
 MAX_QUESTIONS = 10
 
-
-# ------------------------------------------------------------
-# 2. カバ先生の画像
-# ------------------------------------------------------------
-
 IMG_DIR = Path(__file__).parent / "images"
 
 
-@st.cache_data
-def load_image_b64(name: str) -> str | None:
+# ============================================================
+# 1. 多言語設定
+# ============================================================
 
-    path = IMG_DIR / name
+LANGUAGE_LABELS = {
+    "ja": "🇯🇵 日本語",
+    "en": "🇬🇧 English",
+    "th": "🇹🇭 ไทย",
+}
 
-    if not path.exists():
-        return None
-
-    return base64.b64encode(
-        path.read_bytes()
-    ).decode("utf-8")
-
-
-def show_hippo(talking=False):
-
-    img = None
-
-    # しゃべり中の画像があれば使用
-    if talking:
-        img = load_image_b64(
-            "kaba_sensei_talking.png"
-        )
-
-    # なければ通常画像
-    if img is None:
-        img = load_image_b64(
-            "kaba_sensei.png"
-        )
-
-    # アニメーション用クラス
-    cls = "hippo talking" if talking else "hippo"
-
-    if img:
-
-        body = f"""
-        <img
-            class="{cls}"
-            src="data:image/png;base64,{img}"
-            alt="カバ先生"
-        />
-        """
-
-    else:
-
-        body = """
-        <div class="hippo-fallback">
-            🦛
-        </div>
-        """
-
-    st.markdown(
-        f"""
-        <div class="hippo-wrap">
-
-            {body}
-
-            <div class="nameplate">
-                🦛 カバ先生
-            </div>
-
-            <div class="hippo-subtitle">
-                Thailand Travel AI Assistant
-            </div>
-
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+LANGUAGE_NAMES = {
+    "ja": "Japanese",
+    "en": "English",
+    "th": "Thai",
+}
 
 
-# ------------------------------------------------------------
-# 3. デザイン
-# ------------------------------------------------------------
+UI = {
+
+    "ja": {
+
+        "title": "🦛 カバ先生のタイ旅行教室 🇹🇭",
+
+        "subtitle": "日本語で学ぶタイ旅行ガイド",
+
+        "name": "🦛 カバ先生",
+
+        "password": "アクセスパスワード",
+
+        "password_message":
+            "パスワードを入力してください。",
+
+        "question": "カバ先生に質問する",
+
+        "placeholder":
+            "例：タイの空港で何をすればいいですか？",
+
+        "button": "🦛 カバ先生に聞く",
+
+        "thinking": "カバ先生が考え中……🦛💭",
+
+        "empty": "質問を入力してください。",
+
+        "limit": "今回の授業はここまで！",
+
+        "remaining": "残り質問回数",
+
+        "error": "回答を取得できませんでした。",
+
+        "config_error":
+            "アプリの設定を確認してください。",
+
+        "greeting": """
+やあ！カバ先生だよ！🦛
+
+タイ旅行のことなら何でも聞いてね。
+
+空港、持ち物、食べ物、交通機関、
+観光スポット、タイの文化など、
+わかりやすく説明するよ！
+""",
+    },
+
+
+    "en": {
+
+        "title":
+            "🦛 Professor Hippo's Thailand Travel Class 🇹🇭",
+
+        "subtitle":
+            "Your friendly Thailand travel guide",
+
+        "name": "🦛 Professor Hippo",
+
+        "password": "Access Password",
+
+        "password_message":
+            "Please enter your password.",
+
+        "question": "Ask Professor Hippo",
+
+        "placeholder":
+            "Example: What should I do at Bangkok Airport?",
+
+        "button": "🦛 Ask Professor Hippo",
+
+        "thinking":
+            "Professor Hippo is thinking... 🦛💭",
+
+        "empty": "Please enter a question.",
+
+        "limit":
+            "That's all for this session!",
+
+        "remaining": "Questions remaining",
+
+        "error": "Unable to get a response.",
+
+        "config_error":
+            "Please check the app configuration.",
+
+        "greeting": """
+Hello! I'm Professor Hippo! 🦛
+
+Welcome to my Thailand Travel Class!
+
+Ask me about airports, food,
+transportation, culture,
+travel preparation, and more.
+
+Let's explore Thailand together!
+""",
+    },
+
+
+    "th": {
+
+        "title":
+            "🦛 ห้องเรียนท่องเที่ยวไทยกับคุณครูฮิปโป 🇹🇭",
+
+        "subtitle":
+            "เรียนรู้เรื่องเที่ยวไทยกับคุณครูฮิปโป",
+
+        "name": "🦛 คุณครูฮิปโป",
+
+        "password": "รหัสผ่าน",
+
+        "password_message":
+            "กรุณาใส่รหัสผ่าน",
+
+        "question": "ถามคุณครูฮิปโป",
+
+        "placeholder":
+            "ตัวอย่าง: เมื่อถึงสนามบินสุวรรณภูมิต้องทำอะไรบ้าง?",
+
+        "button": "🦛 ถามคุณครูฮิปโป",
+
+        "thinking":
+            "คุณครูฮิปโปกำลังคิดอยู่... 🦛💭",
+
+        "empty": "กรุณาพิมพ์คำถาม",
+
+        "limit":
+            "ครบจำนวนคำถามสำหรับครั้งนี้แล้ว!",
+
+        "remaining": "จำนวนคำถามที่เหลือ",
+
+        "error": "ไม่สามารถรับคำตอบได้",
+
+        "config_error":
+            "กรุณาตรวจสอบการตั้งค่าแอป",
+
+        "greeting": """
+สวัสดี! ครูฮิปโปเองนะ! 🦛
+
+ยินดีต้อนรับสู่ห้องเรียนท่องเที่ยวไทย!
+
+อยากรู้อะไรเกี่ยวกับประเทศไทย
+ถามครูได้เลยนะ
+
+ไม่ว่าจะเป็นสนามบิน อาหาร
+การเดินทาง วัฒนธรรม
+หรือสถานที่ท่องเที่ยว!
+""",
+    },
+
+}
+
+
+# ============================================================
+# 2. CSS
+# ============================================================
 
 st.markdown(
     """
 <style>
 
 @import url(
-'https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap'
+'https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=Noto+Sans+Thai:wght@400;500;700&display=swap'
 );
-
-
-/* ==========================================================
-   カラー設定
-========================================================== */
 
 :root {
 
     --hippo: #8F82B5;
-
     --hippo-dark: #4A3F63;
-
     --gold: #E8B84A;
-
     --river: #EAF7F5;
-
-    --lotus: #F2A7B8;
 
 }
 
-
-/* ==========================================================
-   ページ全体
-========================================================== */
-
-html,
-body,
-.stApp {
+html, body, .stApp {
 
     font-family:
         'Zen Maru Gothic',
-        'Hiragino Maru Gothic ProN',
+        'Noto Sans Thai',
         sans-serif;
 
 }
@@ -162,7 +233,6 @@ body,
 
 }
 
-
 /* メインエリア */
 
 .block-container {
@@ -175,7 +245,6 @@ body,
 
 }
 
-
 /* タイトル */
 
 h1 {
@@ -184,61 +253,37 @@ h1 {
 
     font-weight: 700;
 
-    letter-spacing: 0.02em;
+    font-size: clamp(
+        1.5rem,
+        2.4vw,
+        2.5rem
+    );
 
 }
 
+/* 言語切り替えボタン */
 
-/* ==========================================================
-   カバ先生
-========================================================== */
+.st-key-language_choice {
+
+    padding-top: 0.5rem;
+
+}
+
+/* カバ先生 */
 
 .hippo-wrap {
 
     text-align: center;
 
+    padding: 10px;
+
     position: sticky;
 
     top: 1.5rem;
 
-    padding: 10px;
-
 }
 
-
-/* 画像 */
-
-.hippo {
-
-    display: block;
-
-    width: 100%;
-
-    max-width: 420px;
-
-    height: auto;
-
-    margin: 0 auto;
-
-    border-radius: 24px;
-
-}
-
-
-/* 画像がない場合 */
-
-.hippo-fallback {
-
-    font-size: 10rem;
-
-    line-height: 1.5;
-
-}
-
-
-/* 名前プレート */
-
-.nameplate {
+.hippo-name {
 
     display: inline-block;
 
@@ -252,88 +297,17 @@ h1 {
 
     border-radius: 999px;
 
-    font-size: 1.1rem;
-
     font-weight: 700;
 
 }
 
-
-/* サブタイトル */
-
-.hippo-subtitle {
-
-    margin-top: 12px;
-
-    font-size: 0.85rem;
-
-    color: #857B95;
-
-}
-
-
-/* ==========================================================
-   カバ先生のアニメーション
-========================================================== */
-
-.hippo.talking {
-
-    animation: hippo-bob 1.4s
-        ease-in-out infinite;
-
-}
-
-@keyframes hippo-bob {
-
-    0% {
-
-        transform:
-            translateY(0)
-            rotate(0deg);
-
-    }
-
-    50% {
-
-        transform:
-            translateY(-9px)
-            rotate(-2deg);
-
-    }
-
-    100% {
-
-        transform:
-            translateY(0)
-            rotate(0deg);
-
-    }
-
-}
-
-
-/* 動きを減らす設定への対応 */
-
-@media (prefers-reduced-motion: reduce) {
-
-    .hippo.talking {
-
-        animation: none;
-
-    }
-
-}
-
-
-/* ==========================================================
-   吹き出し
-========================================================== */
+/* 吹き出し */
 
 .st-key-bubble {
 
     position: relative;
 
-    background: #FFFFFF;
+    background: white;
 
     border: 3px solid var(--hippo-dark);
 
@@ -341,8 +315,7 @@ h1 {
 
     padding: 1.6rem 2rem;
 
-    box-shadow:
-        6px 6px 0 var(--hippo);
+    box-shadow: 6px 6px 0 var(--hippo);
 
     margin-top: 1.5rem;
 
@@ -352,31 +325,19 @@ h1 {
 
 }
 
-
-/* 吹き出しのしっぽ */
-
-.st-key-bubble::before,
-.st-key-bubble::after {
+.st-key-bubble::before {
 
     content: "";
 
     position: absolute;
 
-    border-style: solid;
-
-}
-
-
-/* 外側 */
-
-.st-key-bubble::before {
-
     left: -26px;
 
     top: 70px;
 
-    border-width:
-        14px 26px 14px 0;
+    border-width: 14px 26px 14px 0;
+
+    border-style: solid;
 
     border-color:
         transparent
@@ -386,45 +347,27 @@ h1 {
 
 }
 
-
-/* 内側 */
-
 .st-key-bubble::after {
+
+    content: "";
+
+    position: absolute;
 
     left: -19px;
 
     top: 73px;
 
-    border-width:
-        11px 21px 11px 0;
+    border-width: 11px 21px 11px 0;
+
+    border-style: solid;
 
     border-color:
         transparent
-        #FFFFFF
+        white
         transparent
         transparent;
 
 }
-
-
-/* ==========================================================
-   質問フォーム
-========================================================== */
-
-.stTextArea textarea {
-
-    background: #FFFFFF;
-
-    border: 2px solid #C8BDD9;
-
-    border-radius: 16px;
-
-    padding: 16px;
-
-    font-size: 1rem;
-
-}
-
 
 /* 質問ボタン */
 
@@ -443,12 +386,7 @@ div[data-testid="stFormSubmitButton"] button {
 
     padding: 0.6rem 2rem;
 
-    transition: 0.2s;
-
 }
-
-
-/* マウスを乗せたとき */
 
 .stButton > button:hover,
 div[data-testid="stFormSubmitButton"] button:hover {
@@ -459,41 +397,11 @@ div[data-testid="stFormSubmitButton"] button:hover {
 
     border-color: var(--hippo-dark);
 
-    transform: translateY(-2px);
-
 }
 
-
-/* キーボード操作時 */
-
-.stButton > button:focus-visible,
-div[data-testid="stFormSubmitButton"]
-button:focus-visible {
-
-    outline: 3px solid var(--hippo);
-
-    outline-offset: 3px;
-
-}
-
-
-/* ==========================================================
-   スマートフォン対応
-========================================================== */
+/* スマホ */
 
 @media (max-width: 768px) {
-
-    .block-container {
-
-        padding-top: 1rem;
-
-    }
-
-    .hippo {
-
-        max-width: 280px;
-
-    }
 
     .hippo-wrap {
 
@@ -503,13 +411,9 @@ button:focus-visible {
 
     .st-key-bubble {
 
-        margin-top: 1.5rem;
-
         padding: 1.2rem;
 
     }
-
-    /* スマホでは吹き出しを上向きに */
 
     .st-key-bubble::before {
 
@@ -519,8 +423,7 @@ button:focus-visible {
 
         transform: translateX(-50%);
 
-        border-width:
-            0 14px 26px 14px;
+        border-width: 0 14px 26px 14px;
 
         border-color:
             transparent
@@ -538,13 +441,12 @@ button:focus-visible {
 
         transform: translateX(-50%);
 
-        border-width:
-            0 11px 21px 11px;
+        border-width: 0 11px 21px 11px;
 
         border-color:
             transparent
             transparent
-            #FFFFFF
+            white
             transparent;
 
     }
@@ -557,141 +459,74 @@ button:focus-visible {
 )
 
 
-# ------------------------------------------------------------
-# 4. タイトル
-# ------------------------------------------------------------
+# ============================================================
+# 3. タイトル＋右側に言語選択ボタン
+# ============================================================
 
-st.title(
-    "🦛 カバ先生のタイ旅行教室 🇹🇭"
+header_left, header_right = st.columns(
+    [2.2, 1],
+    gap="small",
+    vertical_alignment="center",
 )
 
-st.caption(
-    "日本語と英語で学ぶタイ旅行ガイド"
-)
 
+with header_right:
 
-# ------------------------------------------------------------
-# 5. パスワード認証
-# ------------------------------------------------------------
+    selected_language = st.segmented_control(
 
-app_password = st.secrets.get(
-    "APP_PASSWORD"
-)
+        "Choose Language / 言語 / ภาษา",
 
-if not app_password:
+        options=["ja", "en", "th"],
 
-    st.error(
-        "アプリのパスワードが設定されていません。"
+        format_func=lambda code:
+            LANGUAGE_LABELS[code],
+
+        default=None,
+
+        selection_mode="single",
+
+        key="language_choice",
+
+        label_visibility="collapsed",
+
     )
+
+
+with header_left:
+
+    if selected_language is None:
+
+        st.title(
+            "🦛 Thailand Travel AI 🇹🇭"
+        )
+
+        st.caption(
+            "Choose Language / 言語を選択 / เลือกภาษา"
+        )
+
+    else:
+
+        ui = UI[selected_language]
+
+        st.title(
+            ui["title"]
+        )
+
+        st.caption(
+            ui["subtitle"]
+        )
+
+
+# 言語が選択されるまではアプリを停止
+
+if selected_language is None:
 
     st.stop()
 
 
-password = st.text_input(
-    "Access Password",
-    type="password",
-)
-
-
-if not password or not hmac.compare_digest(
-    password,
-    app_password
-):
-
-    st.info(
-        "パスワードを入力すると、"
-        "カバ先生の授業が始まります。"
-    )
-
-    st.stop()
-
-
-# ------------------------------------------------------------
-# 6. OpenAI API
-# ------------------------------------------------------------
-
-api_key = st.secrets.get(
-    "OPENAI_API_KEY"
-)
-
-if not api_key:
-
-    st.error(
-        "OpenAI APIキーが設定されていません。"
-    )
-
-    st.stop()
-
-
-client = OpenAI(
-    api_key=api_key
-)
-
-
-# ------------------------------------------------------------
-# 7. カバ先生の指示
-# ------------------------------------------------------------
-
-INSTRUCTIONS = textwrap.dedent(
-    """
-    You are "カバ先生" (Professor Hippo).
-
-    You are a friendly and knowledgeable
-    travel teacher specializing in Thailand.
-
-    Your students are mainly Japanese
-    people planning to visit Thailand.
-
-    Speak warmly and explain things clearly.
-
-    Always answer in both Japanese
-    and English.
-
-    Use this format:
-
-    【日本語】
-
-    Japanese answer.
-
-    【English】
-
-    English answer.
-
-    Give practical travel advice.
-
-    Do not claim that changing entry
-    requirements are verified current facts.
-
-    Advise users to check official
-    government sources when appropriate.
-
-    Never invent official regulations
-    or specific entry requirements.
-    """
-).strip()
-
-
-# ------------------------------------------------------------
-# 8. 最初の挨拶
-# ------------------------------------------------------------
-
-GREETING = """
-やあ！カバ先生だよ！🦛
-
-タイ旅行のことなら、何でも聞いてね。
-
-空港、持ち物、食べ物、交通機関、
-観光スポット、タイの文化など、
-わかりやすく説明するよ！
-
-日本語と英語の両方で答えるから、
-英語の勉強にも使ってね！ 🇯🇵 🇬🇧
-"""
-
-
-# ------------------------------------------------------------
-# 9. セッション状態
-# ------------------------------------------------------------
+# ============================================================
+# 4. 言語変更時の処理
+# ============================================================
 
 if "count" not in st.session_state:
 
@@ -703,37 +538,181 @@ if "answer" not in st.session_state:
     st.session_state.answer = None
 
 
-# ------------------------------------------------------------
-# 10. メインレイアウト
-# ------------------------------------------------------------
+if (
+    st.session_state.get("active_language")
+    != selected_language
+):
 
-# 左：カバ先生
-# 右：吹き出し + 質問フォーム
+    st.session_state.active_language = (
+        selected_language
+    )
 
-left, right = st.columns(
-    [1.1, 1.9],
-    gap="large",
+    # 以前の言語の回答を消す
+    st.session_state.answer = None
+
+
+# ============================================================
+# 5. パスワード認証
+# ============================================================
+
+app_password = st.secrets.get(
+    "APP_PASSWORD"
+)
+
+if not app_password:
+
+    st.error(
+        ui["config_error"]
+    )
+
+    st.stop()
+
+
+password = st.text_input(
+
+    ui["password"],
+
+    type="password",
+
 )
 
 
-# ------------------------------------------------------------
-# 11. 左側：カバ先生
-# ------------------------------------------------------------
+if not password or not hmac.compare_digest(
+    password,
+    app_password
+):
+
+    st.info(
+        ui["password_message"]
+    )
+
+    st.stop()
+
+
+# ============================================================
+# 6. OpenAI API
+# ============================================================
+
+api_key = st.secrets.get(
+    "OPENAI_API_KEY"
+)
+
+if not api_key:
+
+    st.error(
+        ui["config_error"]
+    )
+
+    st.stop()
+
+
+client = OpenAI(
+    api_key=api_key
+)
+
+
+# ============================================================
+# 7. カバ先生への指示
+# ============================================================
+
+INSTRUCTIONS = f"""
+You are Professor Hippo,
+a friendly Thailand travel teacher.
+
+The user selected this language:
+
+{LANGUAGE_NAMES[selected_language]}
+
+IMPORTANT:
+
+Answer ONLY in
+{LANGUAGE_NAMES[selected_language]}.
+
+Do not include translations
+into other languages.
+
+Even if the user asks a question
+in a different language,
+answer in the selected language.
+
+Explain Thailand travel information
+clearly and practically.
+
+Do not present changing travel
+requirements as verified current facts.
+
+For visa, entry forms, customs,
+and other official requirements,
+recommend checking official sources
+when necessary.
+
+Never invent official regulations.
+"""
+
+
+# ============================================================
+# 8. 左側：カバ先生の画像
+# ============================================================
+
+def show_hippo():
+
+    image_path = (
+        IMG_DIR / "kaba_sensei.png"
+    )
+
+    if image_path.exists():
+
+        st.image(
+            str(image_path),
+            use_container_width=True,
+        )
+
+    else:
+
+        st.markdown(
+            "# 🦛"
+        )
+
+    # 名前プレート
+
+    st.markdown(
+
+        f'<div class="hippo-wrap">'
+        f'<div class="hippo-name">'
+        f'{ui["name"]}'
+        f'</div>'
+        f'</div>',
+
+        unsafe_allow_html=True,
+
+    )
+
+
+# ============================================================
+# 9. メインレイアウト
+# ============================================================
+
+left, right = st.columns(
+
+    [1.1, 1.9],
+
+    gap="large",
+
+)
+
+
+# ============================================================
+# 10. カバ先生
+# ============================================================
 
 with left:
 
-    hippo_slot = st.empty()
-
-    with hippo_slot.container():
-
-        show_hippo(
-            talking=False
-        )
+    show_hippo()
 
 
-# ------------------------------------------------------------
-# 12. 右側：吹き出し
-# ------------------------------------------------------------
+# ============================================================
+# 11. 吹き出し
+# ============================================================
 
 with right:
 
@@ -741,59 +720,66 @@ with right:
         key="bubble"
     ):
 
-        # 回答がない場合は挨拶
         answer = (
             st.session_state.answer
-            or GREETING
+            or ui["greeting"]
         )
 
         st.markdown(
             answer
         )
 
-        # 残り質問回数
         st.caption(
-            f"残り "
-            f"{MAX_QUESTIONS - st.session_state.count}"
-            f" 回"
+
+            f'{ui["remaining"]}: '
+            f'{MAX_QUESTIONS - st.session_state.count}'
+
         )
 
 
-    # --------------------------------------------------------
-    # 13. 質問フォーム
-    # --------------------------------------------------------
+    # ========================================================
+    # 12. 質問フォーム
+    # ========================================================
 
     with st.form(
-        key="question_form",
+
+        key=f"question_form_{selected_language}",
+
         clear_on_submit=False,
+
         border=False,
+
     ):
 
         question = st.text_area(
-            "カバ先生に質問する",
-            placeholder=(
-                "例：日本人がタイに旅行するとき、"
-                "何を準備すべきですか？"
-            ),
+
+            ui["question"],
+
+            placeholder=ui["placeholder"],
+
             height=140,
+
             max_chars=1200,
+
         )
 
         submitted = st.form_submit_button(
-            "🦛 カバ先生に聞く"
+
+            ui["button"]
+
         )
 
 
-    # --------------------------------------------------------
-    # 14. AIに質問
-    # --------------------------------------------------------
+    # ========================================================
+    # 13. OpenAI API呼び出し
+    # ========================================================
 
     if submitted:
 
         if not question.strip():
 
             st.warning(
-                "質問を入力してください。"
+                ui["empty"]
             )
 
         elif (
@@ -802,66 +788,50 @@ with right:
         ):
 
             st.warning(
-                "今回の授業はここまで！"
-                f"上限は {MAX_QUESTIONS} 回です。"
+                ui["limit"]
             )
 
         else:
 
-            # カバ先生を動かす
-            with hippo_slot.container():
-
-                show_hippo(
-                    talking=True
-                )
-
             with st.spinner(
-                "カバ先生が考え中……🦛💭"
+                ui["thinking"]
             ):
 
                 try:
 
-                    # OpenAI APIを呼び出す
                     response = (
                         client.responses.create(
+
                             model="gpt-5-mini",
+
                             instructions=INSTRUCTIONS,
+
                             input=question,
+
                             reasoning={
                                 "effort": "low"
                             },
+
                             max_output_tokens=3000,
+
                         )
                     )
 
-                    # 回答を保存
                     st.session_state.answer = (
                         response.output_text
                     )
 
-                    # 質問回数を増やす
                     st.session_state.count += 1
 
-                    # 画面を更新
                     st.rerun()
 
                 except Exception as e:
 
-                    # APIキーなどは表示しない
                     print(
                         "OpenAI API Error:",
                         type(e).__name__
                     )
 
                     st.error(
-                        "回答を取得できませんでした。"
-                        "時間をおいてもう一度"
-                        "試してください。"
+                        ui["error"]
                     )
-
-                    # エラー時は先生を静止
-                    with hippo_slot.container():
-
-                        show_hippo(
-                            talking=False
-                        )
